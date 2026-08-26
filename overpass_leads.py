@@ -78,11 +78,10 @@ def build_overpass_query(city, iso_code, tag_pairs, timeout=180):
     Chaining `(area.a)(area.b)` after node/way means "in area a AND in area b" -
     that's how we narrow "a place called London" down to "London, in GB"
     (city names alone aren't unique worldwide).
-    `[!"website"]` means "this tag is absent" - that's our "no website" filter.
-    We also exclude anything tagged with a "brand" - chain/franchise branches
-    (e.g. a Wahaca or Ottolenghi outlet) almost always have a company website
-    even when this particular branch's OSM entry wasn't individually tagged
-    with one, so they're not useful "no web presence" leads.
+
+    Note this deliberately fetches EVERY matching business in the area,
+    including ones that already have a website - see the comment on
+    `parse_elements()` for why: we need the full set to reliably spot chains.
     """
     lines = [
         f"[out:json][timeout:{timeout}];",
@@ -92,8 +91,7 @@ def build_overpass_query(city, iso_code, tag_pairs, timeout=180):
     ]
     for key, value in tag_pairs:
         tag_filter = f'["{key}"]' if value == "*" else f'["{key}"="{value}"]'
-        exclusions = '[!"website"][!"contact:website"][!"brand"][!"brand:wikidata"]'
-        common = f"(area.searchArea)(area.country){tag_filter}{exclusions}"
+        common = f"(area.searchArea)(area.country){tag_filter}"
         lines.append(f"  node{common};")
         lines.append(f"  way{common};")
     lines.append(");")
@@ -121,8 +119,33 @@ def _build_address(tags, fallback_city):
     return ", ".join(parts)
 
 
+def _has_web_presence(tags):
+    """True if this OSM entry itself is tagged with a website or a brand."""
+    return bool(_first_present(tags, ["website", "contact:website", "brand", "brand:wikidata"]))
+
+
 def parse_elements(elements, category, city, country):
-    """Turn raw Overpass JSON elements into row dicts matching FIELDNAMES."""
+    """
+    Turn raw Overpass JSON elements into row dicts matching FIELDNAMES.
+
+    `elements` here is the FULL set of matching businesses in the area -
+    including ones that already have a website - not just the "no website"
+    ones. That's on purpose: chain/franchise branches (e.g. Wahaca,
+    Ottolenghi) are tagged inconsistently in OSM, so one branch might have a
+    website/brand tag while a sister branch a few streets over has neither.
+    A branch missing the tag isn't actually "no web presence" - it's just an
+    incompletely-tagged chain location. So first we scan every element to
+    build the set of names that show a website/brand tag ANYWHERE, then any
+    other element sharing that exact name is treated as "already covered"
+    even if that specific node itself has no tag to prove it.
+    """
+    known_names = {
+        tags["name"].strip().lower()
+        for element in elements
+        for tags in [element.get("tags", {}) or {}]
+        if tags.get("name", "").strip() and _has_web_presence(tags)
+    }
+
     today = date.today().isoformat()
     rows = []
     for element in elements:
@@ -130,6 +153,12 @@ def parse_elements(elements, category, city, country):
         name = tags.get("name", "").strip()
         if not name:
             continue  # Skip unnamed entries - not usable as a lead.
+
+        if _has_web_presence(tags):
+            continue  # Tagged directly as having a website/brand.
+
+        if name.lower() in known_names:
+            continue  # A same-named sibling elsewhere has a website/brand tag.
 
         phone = _first_present(tags, ["phone", "contact:phone"])
         if not phone:

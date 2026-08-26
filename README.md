@@ -136,6 +136,17 @@ any time, instead of waiting for the schedule.
 - Overpass is a shared, donated public service — queries are intentionally scoped to one
   city/category at a time, and `http_utils.py` retries with backoff on 429/504 responses
   (which happen fairly often under load). Avoid adding dozens of huge cities at once.
+- **"No website" leads can still occasionally have a real website.** OSM only tracks
+  whether a volunteer bothered to tag a `website`/`contact:website` field — it doesn't
+  actually check the business. `overpass_leads.py` filters out anything tagged with a
+  website, a `brand`/`brand:wikidata` tag (chain/franchise branches, e.g. Wahaca,
+  Ottolenghi), or that shares an exact name with another branch in the same city that *is*
+  tagged that way (OSM tags chain branches inconsistently, so one location often carries
+  the tag a sister location is missing). This catches the vast majority of chains, but a
+  small number of businesses with a real website that OSM has simply never recorded at all
+  will still slip through — there's no way to fully close that gap without a paid,
+  billing-account-based lookup (e.g. Google Places), so a quick manual glance before
+  reaching out is still worthwhile.
 - Companies House's advanced search matches the **keyword against company names**, not a
   formal industry/SIC classification — e.g. `"software"` will match "XYZ Software Ltd" but
   not necessarily every software company. You can extend `companies_house_leads.py` to filter
