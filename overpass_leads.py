@@ -79,6 +79,10 @@ def build_overpass_query(city, iso_code, tag_pairs, timeout=180):
     that's how we narrow "a place called London" down to "London, in GB"
     (city names alone aren't unique worldwide).
     `[!"website"]` means "this tag is absent" - that's our "no website" filter.
+    We also exclude anything tagged with a "brand" - chain/franchise branches
+    (e.g. a Wahaca or Ottolenghi outlet) almost always have a company website
+    even when this particular branch's OSM entry wasn't individually tagged
+    with one, so they're not useful "no web presence" leads.
     """
     lines = [
         f"[out:json][timeout:{timeout}];",
@@ -88,8 +92,8 @@ def build_overpass_query(city, iso_code, tag_pairs, timeout=180):
     ]
     for key, value in tag_pairs:
         tag_filter = f'["{key}"]' if value == "*" else f'["{key}"="{value}"]'
-        no_website_filter = '[!"website"][!"contact:website"]'
-        common = f"(area.searchArea)(area.country){tag_filter}{no_website_filter}"
+        exclusions = '[!"website"][!"contact:website"][!"brand"][!"brand:wikidata"]'
+        common = f"(area.searchArea)(area.country){tag_filter}{exclusions}"
         lines.append(f"  node{common};")
         lines.append(f"  way{common};")
     lines.append(");")
