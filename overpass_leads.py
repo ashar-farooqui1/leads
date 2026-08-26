@@ -127,9 +127,13 @@ def parse_elements(elements, category, city, country):
         if not name:
             continue  # Skip unnamed entries - not usable as a lead.
 
+        phone = _first_present(tags, ["phone", "contact:phone"])
+        if not phone:
+            continue  # No way to actually contact this lead - skip it.
+
         rows.append({
             "name": name,
-            "phone": _first_present(tags, ["phone", "contact:phone"]),
+            "phone": phone,
             "address": _build_address(tags, city),
             "category": category,
             "city": city,
