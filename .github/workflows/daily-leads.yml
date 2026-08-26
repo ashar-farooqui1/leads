@@ -1,0 +1,48 @@
+name: Daily Lead Generation
+
+# ---------------------------------------------------------------------------
+# Runs run_daily.py on a schedule, then commits the updated CSVs back to the
+# repo. This means it works with zero cost and no server - it runs on
+# GitHub's own infrastructure even if your laptop is off.
+#
+# To change the time it runs, edit the cron line below.
+# Cron format: minute hour day month weekday - and it's always UTC,
+# not your local timezone. '0 7 * * *' = every day at 07:00 UTC.
+# ---------------------------------------------------------------------------
+on:
+  schedule:
+    - cron: '0 7 * * *'
+  workflow_dispatch: {}   # adds a "Run workflow" button in the Actions tab for manual runs
+
+permissions:
+  contents: write   # required so this workflow can commit the updated CSVs back to the repo
+
+jobs:
+  generate-leads:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run daily lead generation
+        env:
+          # Set this in your repo under Settings -> Secrets and variables ->
+          # Actions -> New repository secret. Never hardcode the key here.
+          COMPANIES_HOUSE_API_KEY: ${{ secrets.COMPANIES_HOUSE_API_KEY }}
+        run: python run_daily.py
+
+      - name: Commit updated leads
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/leads.csv data/leads_overpass.csv data/leads_companies_house.csv
+          git diff --cached --quiet || git commit -m "chore: daily lead update $(date -u +'%Y-%m-%d')"
+          git push

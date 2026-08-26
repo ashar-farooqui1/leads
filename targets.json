@@ -1,0 +1,13 @@
+{
+  "overpass": [
+    { "city": "London", "country": "GB", "categories": ["restaurant", "cafe", "dentist", "salon"] },
+    { "city": "Manchester", "country": "GB", "categories": ["gym", "lawyer", "accountant"] },
+    { "city": "New York", "country": "US", "categories": ["restaurant", "real_estate"] },
+    { "city": "Austin", "country": "US", "categories": ["cafe", "clinic", "shop"] }
+  ],
+  "companies_house": [
+    { "keyword": "marketing", "days_back": 14 },
+    { "keyword": "software", "days_back": 14 },
+    { "keyword": "design", "days_back": 14 }
+  ]
+}
